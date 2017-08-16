@@ -217,6 +217,10 @@ func (p *Pool) applyScaleTasksPerMinute() (err error) {
 	return
 }
 
+func (p *Pool) GetTasksQueueLength() (int) {
+	return len(p.tasksChan)
+}
+
 func calculateParameters(desiredTasksPerDuration time.Duration, desiredTasksPer int64, averageTaskDuration time.Duration) (workerCount int64, waitDuration time.Duration) {
 	log2.Log(log2.DEBUG, pkg, "calculateParameters", "", log2.Fields{
 		"desiredTasks":            desiredTasksPer,

@@ -122,6 +122,7 @@ func TestCalculateParameter(t *testing.T) {
 	testBag.AddResult(assert.Equal(t, expectedWorkerCount, actualWorkerCount))
 	testBag.AddResult(assert.Equal(t, expectedWaitDuration, actualWaitDuration))
 
+
 	if testBag.HasFailed() {
 		t.Fail()
 	}
