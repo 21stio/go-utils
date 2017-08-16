@@ -3,9 +3,14 @@ package queue
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/21stio/go-utils/testing2"
 )
 
 func TestGetStats(t *testing.T) {
+	testBag := testing2.TestBag{}
+
 	ts := NewTimeSeries(100)
 
 	now := time.Now()
@@ -28,5 +33,16 @@ func TestGetStats(t *testing.T) {
 		return
 	}
 
+	testBag.AddResult(assert.Equal(t, float64(4.5), stats.Average))
+	testBag.AddResult(assert.Equal(t, float64(4.5), stats.Median))
+	testBag.AddResult(assert.Equal(t, float64(45), stats.Sum))
+	testBag.AddResult(assert.Equal(t, float64(0), stats.Min))
+	testBag.AddResult(assert.Equal(t, float64(9), stats.Max))
+	testBag.AddResult(assert.Equal(t, uint64(10), stats.Count))
+
 	t.Logf("%+v", stats)
+
+	if testBag.HasFailed() {
+		t.Fail()
+	}
 }

@@ -1,8 +1,6 @@
 package statistics
 
-import (
-	"errors"
-)
+import "math"
 
 type Stats struct {
 	Average float64
@@ -16,33 +14,25 @@ type Stats struct {
 func GetStats(numbers []float64) (stats Stats, err error) {
 	stats.Average = Average(numbers)
 
-	stats.Median, err = Median(numbers)
-	if err != nil {
-		return
-	}
+	stats.Median = Median(numbers)
 
 	stats.Sum = Sum(numbers)
 
-	stats.Min, err = Min(numbers)
-	if err != nil {
-		return
-	}
+	stats.Min = Min(numbers)
 
-	stats.Max, err = Max(numbers)
-	if err != nil {
-		return
-	}
+	stats.Max = Max(numbers)
 
 	stats.Count = Count(numbers)
 
 	return
 }
 
-func Median(numbers []float64) (median float64, err error) {
+func Median(numbers []float64) (median float64) {
 	l := len(numbers)
 
 	if l == 0 {
-		err = errors.New("len(numbers) == 0")
+		median = math.NaN()
+
 		return
 	}
 
@@ -56,6 +46,8 @@ func Median(numbers []float64) (median float64, err error) {
 }
 
 func Sum(numbers []float64) (total float64) {
+	//total = math.NaN()
+
 	for _, x := range numbers {
 		total += x
 	}
@@ -63,11 +55,12 @@ func Sum(numbers []float64) (total float64) {
 	return total
 }
 
-func Min(numbers []float64) (min float64, err error) {
+func Min(numbers []float64) (min float64) {
 	l := len(numbers)
 
 	if l == 0 {
-		err = errors.New("len(numbers) == 0")
+		min = math.NaN()
+
 		return
 	}
 
@@ -81,11 +74,12 @@ func Min(numbers []float64) (min float64, err error) {
 	return
 }
 
-func Max(numbers []float64) (max float64, err error) {
+func Max(numbers []float64) (max float64) {
 	l := len(numbers)
 
 	if l == 0 {
-		err = errors.New("len(numbers) == 0")
+		max = math.NaN()
+
 		return
 	}
 

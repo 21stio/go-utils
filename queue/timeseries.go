@@ -10,10 +10,10 @@ type DataPoint struct {
 	Value     float64
 }
 
-func NewTimeSeries(max int) (q TimeSeries) {
+func NewTimeSeries(max int) (q *TimeSeries) {
 	fifo := NewFixedFifo(max)
 
-	q = TimeSeries{
+	q = &TimeSeries{
 		fifo: &fifo,
 	}
 

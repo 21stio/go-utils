@@ -1,4 +1,4 @@
-package testing
+package testing2
 
 type TestBag struct {
 	results []bool
