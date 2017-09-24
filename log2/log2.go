@@ -17,24 +17,24 @@ const (
 )
 
 type Entry struct {
-	level     Level
-	pkg       string
-	function  string
-	message   string
-	fields    Fields
-	timestamp time.Time
+	Level     Level
+	Pkg       string
+	Function  string
+	Message   string
+	Fields    Fields
+	Timestamp time.Time
 }
 
 var E = make(chan Entry)
 
 func Log(l Level, pkg string, function string, message string, f Fields) {
 	e := Entry{
-		level:     l,
-		message:   message,
-		pkg:       pkg,
-		function:  function,
-		fields:    f,
-		timestamp: time.Now(),
+		Level:     l,
+		Message:   message,
+		Pkg:       pkg,
+		Function:  function,
+		Fields:    f,
+		Timestamp: time.Now(),
 	}
 
 	E <- e
@@ -42,11 +42,11 @@ func Log(l Level, pkg string, function string, message string, f Fields) {
 
 func HandleEntries(l Level, i map[string]map[string]bool, h func(e Entry)) {
 	for e := range E {
-		if e.level < l {
+		if e.Level < l {
 			continue
 		}
 
-		_, exists:= i[e.pkg][e.function]
+		_, exists:= i[e.Pkg][e.Function]
 		if exists {
 			continue
 		}
@@ -56,5 +56,5 @@ func HandleEntries(l Level, i map[string]map[string]bool, h func(e Entry)) {
 }
 
 func Print(e Entry) {
-	fmt.Printf("%v %v %v %v %+v %v\n", e.timestamp.String(), e.level, e.pkg, e.function, e.fields, e.message)
+	fmt.Printf("%v %v %v %v %+v %v\n", e.Timestamp.String(), e.Level, e.Pkg, e.Function, e.Fields, e.Message)
 }
