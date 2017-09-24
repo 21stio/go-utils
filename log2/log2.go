@@ -16,7 +16,7 @@ const (
 	FATAL
 )
 
-type entry struct {
+type Entry struct {
 	level     Level
 	pkg       string
 	function  string
@@ -25,10 +25,10 @@ type entry struct {
 	timestamp time.Time
 }
 
-var E = make(chan entry)
+var E = make(chan Entry)
 
 func Log(l Level, pkg string, function string, message string, f Fields) {
-	e := entry{
+	e := Entry{
 		level:     l,
 		message:   message,
 		pkg:       pkg,
@@ -40,7 +40,7 @@ func Log(l Level, pkg string, function string, message string, f Fields) {
 	E <- e
 }
 
-func HandleEntries(l Level, i map[string]map[string]bool, h func(e entry)) {
+func HandleEntries(l Level, i map[string]map[string]bool, h func(e Entry)) {
 	for e := range E {
 		if e.level < l {
 			continue
@@ -55,6 +55,6 @@ func HandleEntries(l Level, i map[string]map[string]bool, h func(e entry)) {
 	}
 }
 
-func Print(e entry) {
+func Print(e Entry) {
 	fmt.Printf("%v %v %v %v %+v %v\n", e.timestamp.String(), e.level, e.pkg, e.function, e.fields, e.message)
 }
