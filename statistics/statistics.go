@@ -4,11 +4,11 @@ import "math"
 
 type Stats struct {
 	Average float64
-	Median float64
-	Sum float64
-	Min float64
-	Max float64
-	Count uint64
+	Median  float64
+	Sum     float64
+	Min     float64
+	Max     float64
+	Count   uint64
 }
 
 func GetStats(numbers []float64) (stats Stats, err error) {

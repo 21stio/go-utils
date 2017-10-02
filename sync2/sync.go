@@ -10,9 +10,9 @@ type CountWG struct {
 	Count int64
 }
 
-func (cg *CountWG) Add(delta int) {
-	atomic.AddInt64(&cg.Count, 1)
-	cg.WaitGroup.Add(delta)
+func (cg *CountWG) Add(delta int64) {
+	atomic.AddInt64(&cg.Count, delta)
+	cg.WaitGroup.Add(int(delta))
 }
 
 func (cg *CountWG) Done() {

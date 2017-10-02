@@ -7,29 +7,134 @@ import (
 	"time"
 	"github.com/21stio/go-utils/statistics"
 	"math"
-	"github.com/21stio/go-utils/log2"
+	"github.com/rs/zerolog"
+	"sync/atomic"
 )
-
-var pkg = "github.com/21stio/go-utils/worker"
 
 type PoolStats struct {
-	Err           statistics.Stats
-	NewTasks      statistics.Stats
-	TasksDuration statistics.Stats
+	Err              statistics.Stats
+	NewTasks         statistics.Stats
+	TasksDuration    statistics.Stats
+	WorkerCount      int64
+	TasksQueueLength int64
 }
 
-type ScaleStrategy float64
-
 const (
-	WORKER_STRATEGY ScaleStrategy = iota
-	TASKS_STRATEGY
+	WORKER_STRATEGY string = "worker"
+	TASKS_STRATEGY         = "tasks"
 )
 
-func (p *Pool) startWorker() {
-	log2.Log(log2.DEBUG, pkg, "Worker.startWorker", "", log2.Fields{})
+func New(log zerolog.Logger, isLogStats bool, interval time.Duration, function func(zerolog.Logger, interface{}) (error)) (pool Pool) {
+	pool.log = log
+	pool.function = function
+	pool.tasksChan = make(chan interface{}, 100)
+	pool.errChan = make(chan error, 100)
+	pool.quitChan = make(chan bool, 100)
+	pool.errTimeSeries = queue.NewTimeSeries(1000)
+	pool.tasksDurationTimeSeries = queue.NewTimeSeries(1000)
+	pool.newTasksTimeSeries = queue.NewTimeSeries(1000)
+	pool.waitGroup = &sync2.CountWG{}
 
+	go pool.loopLogStats(isLogStats, interval)
+
+	return
+}
+
+type Pool struct {
+	log                     zerolog.Logger
+	scaleStrategy           string
+	desiredTasks            int64
+	desiredTasksPerDuration time.Duration
+	taskWaitDuration        time.Duration
+	applyLoopStarted        bool
+	tasksChan               chan interface{}
+	errChan                 chan error
+	quitChan                chan bool
+	errTimeSeries           *queue.TimeSeries
+	tasksDurationTimeSeries *queue.TimeSeries
+	newTasksTimeSeries      *queue.TimeSeries
+	waitGroup               *sync2.CountWG
+	function                func(zerolog.Logger, interface{}) (error)
+	scaleLock               sync.Mutex
+	nextWorkerId            int64
+}
+
+func (p *Pool) GetWorkerCount() (int64) {
+	pkg(p.log.Debug(), "Pool.GetWorkerCount").
+		Msg("")
+
+	return p.waitGroup.Count
+}
+
+func (p *Pool) loopLogStats(isLogStats bool, interval time.Duration) {
+	pkg(p.log.Debug(), "Pool.loopLogStats").
+		Bool("isLogStats", isLogStats).
+		Dur("interval", interval).
+		Msg("")
+
+	for isLogStats {
+		p.logStats(interval)
+
+		time.Sleep(interval)
+	}
+}
+
+func (p *Pool) logStats(interval time.Duration) {
+	pkg(p.log.Debug(), "Pool.logStats").
+		Msg("")
+
+	stats, err := p.GetStats(interval)
+	if err != nil {
+		pkg(p.log.Error(), "Pool.logStats").
+			Err(err)
+	}
+
+	pkg(p.log.Info(), "logStats").
+		Dur("interval", interval).
+		Str("type", "Err").
+		Interface("stats", stats.Err).
+		Msg("")
+
+	pkg(p.log.Info(), "logStats").
+		Dur("interval", interval).
+		Str("type", "NewTasks").
+		Interface("stats", stats.NewTasks).
+		Msg("")
+
+	pkg(p.log.Info(), "logStats").
+		Dur("interval", interval).
+		Str("type", "TasksDuration").
+		Interface("stats", stats.TasksDuration).
+		Msg("")
+
+	pkg(p.log.Info(), "logStats").
+		Dur("interval", interval).
+		Str("type", "WorkerCount").
+		Int64("count", stats.WorkerCount).
+		Msg("")
+
+	pkg(p.log.Info(), "logStats").
+		Dur("interval", interval).
+		Str("type", "TasksQueueLength").
+		Int64("count", stats.TasksQueueLength).
+		Msg("")
+}
+
+func (p *Pool) StartWorker() {
+	pkg(p.log.Debug(), "StartWorker").
+		Msg("")
+
+	go p.startWorker()
+}
+
+func (p *Pool) startWorker() {
 	p.waitGroup.Add(1)
 	defer p.waitGroup.Done()
+
+	id := atomic.AddInt64(&p.nextWorkerId, 1)
+
+	log := p.log.With().Int64("workerId", id).Logger()
+
 	for {
 		select {
 		case task, ok := <-p.tasksChan:
@@ -38,7 +143,7 @@ func (p *Pool) startWorker() {
 			}
 			start := time.Now()
 
-			err := p.function(task)
+			err := p.function(log, task)
 			if err != nil {
 				p.errChan <- err
 				p.errTimeSeries.Push(time.Now(), 1)
@@ -57,62 +162,24 @@ func (p *Pool) startWorker() {
 	}
 }
 
-func New(function func(interface{}) (error)) (pool Pool) {
-	pool.function = function
-	pool.tasksChan = make(chan interface{}, 100)
-	pool.errChan = make(chan error, 100)
-	pool.quitChan = make(chan bool, 100)
-	pool.errTimeSeries = queue.NewTimeSeries(1000)
-	pool.tasksDurationTimeSeries = queue.NewTimeSeries(1000)
-	pool.newTasksTimeSeries = queue.NewTimeSeries(1000)
-
-	return
-}
-
-type Pool struct {
-	scaleStrategy           ScaleStrategy
-	desiredTasks            int64
-	desiredTasksPerDuration time.Duration
-	taskWaitDuration        time.Duration
-	applyLoopStarted        bool
-	tasksChan               chan interface{}
-	errChan                 chan error
-	quitChan                chan bool
-	errTimeSeries           *queue.TimeSeries
-	tasksDurationTimeSeries *queue.TimeSeries
-	newTasksTimeSeries      *queue.TimeSeries
-	waitGroup               sync2.CountWG
-	function                func(interface{}) (error)
-	scaleLock               sync.Mutex
-}
-
-func (p *Pool) GetWorkerCount() (int64) {
-	log2.Log(log2.DEBUG, pkg, "Worker.GetWorkerCount", "", log2.Fields{})
-
-	return p.waitGroup.Count
-}
-
-func (p *Pool) StartWorker() {
-	log2.Log(log2.DEBUG, pkg, "Worker.StartWorker", "", log2.Fields{})
-
-	go p.startWorker()
-}
-
 func (p *Pool) StopWorker() {
-	log2.Log(log2.DEBUG, pkg, "Worker.StopWorker", "", log2.Fields{})
+	pkg(p.log.Debug(), "Pool.StopWorker").
+		Msg("")
 
 	p.quitChan <- true
 }
 
 func (p *Pool) AddTask(task interface{}) {
-	log2.Log(log2.DEBUG, pkg, "Worker.AddTask", "", log2.Fields{})
+	pkg(p.log.Debug(), "Pool.AddTask").
+		Msg("")
 
 	p.tasksChan <- task
 	p.newTasksTimeSeries.Push(time.Now(), 1)
 }
 
 func (p *Pool) GetStats(duration time.Duration) (stats PoolStats, err error) {
-	log2.Log(log2.DEBUG, pkg, "Worker.GetStats", "", log2.Fields{})
+	pkg(p.log.Debug(), "Pool.GetStats").
+		Msg("")
 
 	end := time.Now()
 	start := end.Add(-duration)
@@ -132,11 +199,16 @@ func (p *Pool) GetStats(duration time.Duration) (stats PoolStats, err error) {
 		return
 	}
 
+	stats.WorkerCount = p.GetWorkerCount()
+	stats.TasksQueueLength = p.GetTasksQueueLength()
+
 	return
 }
 
 func (p *Pool) ScaleWorker(desired int64) {
-	log2.Log(log2.DEBUG, pkg, "Worker.ScaleWorker", "", log2.Fields{"desired": desired})
+	pkg(p.log.Info(), "Pool.ScaleWorker").
+		Int64("desired", desired).
+		Msg("")
 
 	p.scaleLock.Lock()
 	defer p.scaleLock.Unlock()
@@ -160,29 +232,35 @@ func (p *Pool) ScaleWorker(desired int64) {
 	}
 }
 
-func (p *Pool) SetStrategy(strategy ScaleStrategy) {
-	log2.Log(log2.DEBUG, pkg, "Worker.SetStrategy", "", log2.Fields{})
+func (p *Pool) SetStrategy(strategy string) {
+	pkg(p.log.Debug(), "Pool.SetStrategy").
+		Str("strategy", strategy).
+		Msg("")
 
 	p.scaleStrategy = strategy
 }
 
 func (p *Pool) ScaleTasksPer(duration time.Duration, desired int64) (err error) {
-	log2.Log(log2.DEBUG, pkg, "Worker.ScaleTasksPerMinute", "", log2.Fields{})
+	pkg(p.log.Debug(), "Pool.ScaleTasksPer").
+		Dur("duration", duration).
+		Int64("desired", desired).
+		Msg("")
 
 	p.desiredTasks = desired
 	p.desiredTasksPerDuration = duration
 	p.scaleStrategy = TASKS_STRATEGY
 
 	if p.applyLoopStarted == false {
-		go p.startApplyLoop()
+		go p.loopApplyScaleTasksPerMinute()
 		p.applyLoopStarted = true
 	}
 
 	return
 }
 
-func (p *Pool) startApplyLoop() {
-	log2.Log(log2.DEBUG, pkg, "Worker.startApplyLoop", "", log2.Fields{})
+func (p *Pool) loopApplyScaleTasksPerMinute() {
+	pkg(p.log.Debug(), "Pool.loopApplyScaleTasksPerMinute").
+		Msg("")
 
 	for true {
 		p.applyScaleTasksPerMinute()
@@ -191,7 +269,8 @@ func (p *Pool) startApplyLoop() {
 }
 
 func (p *Pool) applyScaleTasksPerMinute() (err error) {
-	log2.Log(log2.DEBUG, pkg, "Worker.applyScaleTasksPerMinute", "", log2.Fields{})
+	pkg(p.log.Debug(), "Pool.applyScaleTasksPerMinute").
+		Msg("")
 
 	stats, err := p.GetStats(1 * time.Minute)
 	if err != nil {
@@ -203,12 +282,12 @@ func (p *Pool) applyScaleTasksPerMinute() (err error) {
 		averageTaskDuration = stats.TasksDuration.Average
 	}
 
-	workerCount, taskWaitDuration := calculateParameters(p.desiredTasksPerDuration, p.desiredTasks, time.Duration(averageTaskDuration*1000*1000)*time.Microsecond)
+	workerCount, taskWaitDuration := calculateParameters(p.log, p.desiredTasksPerDuration, p.desiredTasks, time.Duration(averageTaskDuration*1000*1000)*time.Microsecond)
 
-	log2.Log(log2.DEBUG, pkg, "Worker.applyScaleTasksPerMinute", "", log2.Fields{
-		"workerCount":      workerCount,
-		"taskWaitDuration": taskWaitDuration,
-	})
+	pkg(p.log.Debug(), "Pool.applyScaleTasksPerMinute").
+		Int64("workerCount", workerCount).
+		Dur("taskWaitDuration", taskWaitDuration).
+		Msg("")
 
 	p.taskWaitDuration = taskWaitDuration
 
@@ -217,16 +296,16 @@ func (p *Pool) applyScaleTasksPerMinute() (err error) {
 	return
 }
 
-func (p *Pool) GetTasksQueueLength() (int) {
-	return len(p.tasksChan)
+func (p *Pool) GetTasksQueueLength() (int64) {
+	return int64(len(p.tasksChan))
 }
 
-func calculateParameters(desiredTasksPerDuration time.Duration, desiredTasksPer int64, averageTaskDuration time.Duration) (workerCount int64, waitDuration time.Duration) {
-	log2.Log(log2.DEBUG, pkg, "calculateParameters", "", log2.Fields{
-		"desiredTasks":            desiredTasksPer,
-		"desiredTasksPerDuration": desiredTasksPerDuration,
-		"averageTaskDuration":     averageTaskDuration,
-	})
+func calculateParameters(log zerolog.Logger, desiredTasksPerDuration time.Duration, desiredTasksPer int64, averageTaskDuration time.Duration) (workerCount int64, waitDuration time.Duration) {
+	pkg(log.Debug(), "calculateParameters").
+		Int64("desiredTasksPer", desiredTasksPer).
+		Dur("desiredTasksPerDuration", desiredTasksPerDuration).
+		Dur("averageTaskDuration", averageTaskDuration).
+		Msg("")
 
 	taskDurationSum := time.Duration(desiredTasksPer) * averageTaskDuration
 

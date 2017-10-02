@@ -1,6 +1,10 @@
-hash: 8fe6105af54acea64576358cf4f4e82eece359d8ab013b8f39f703adff70c750
-updated: 2017-08-10T16:52:56.339225096+02:00
+hash: 68676ce2d3421de3e9c4695efe4d313501af0ab2c3b53987275db1e787a660b2
+updated: 2017-09-30T17:01:31.008962522+02:00
 imports:
+- name: github.com/rs/zerolog
+  version: 3ac71fc58dbd43122668a912b755b0979ba9ce1f
+  subpackages:
+  - log
 - name: github.com/stretchr/testify
   version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
   subpackages:
