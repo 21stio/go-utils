@@ -291,7 +291,9 @@ func (p *Pool) applyScaleTasksPerMinute() (err error) {
 
 	p.taskWaitDuration = taskWaitDuration
 
-	p.ScaleWorker(workerCount)
+	if workerCount != p.GetWorkerCount() {
+		p.ScaleWorker(workerCount)
+	}
 
 	return
 }

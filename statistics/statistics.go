@@ -96,5 +96,10 @@ func Count(numbers []float64) (count uint64) {
 }
 
 func Average(numbers []float64) (average float64) {
-	return Sum(numbers) / float64(len(numbers))
+	c := float64(len(numbers))
+	if c == 0 {
+		return 0
+	}
+
+	return Sum(numbers) / c
 }
