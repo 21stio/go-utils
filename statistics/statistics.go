@@ -1,7 +1,5 @@
 package statistics
 
-import "math"
-
 type Stats struct {
 	Average float64
 	Median  float64
