@@ -31,7 +31,7 @@ func Median(numbers []float64) (median float64) {
 	l := len(numbers)
 
 	if l == 0 {
-		median = math.NaN()
+		median = 0
 
 		return
 	}
@@ -46,7 +46,7 @@ func Median(numbers []float64) (median float64) {
 }
 
 func Sum(numbers []float64) (total float64) {
-	//total = math.NaN()
+	total = 0
 
 	for _, x := range numbers {
 		total += x
@@ -59,7 +59,7 @@ func Min(numbers []float64) (min float64) {
 	l := len(numbers)
 
 	if l == 0 {
-		min = math.NaN()
+		min = 0
 
 		return
 	}
@@ -78,7 +78,7 @@ func Max(numbers []float64) (max float64) {
 	l := len(numbers)
 
 	if l == 0 {
-		max = math.NaN()
+		max = 0
 
 		return
 	}
