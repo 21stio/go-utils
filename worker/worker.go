@@ -73,9 +73,9 @@ func (p *Pool) loopLogStats(isLogStats bool, interval time.Duration) {
 		Msg("")
 
 	for isLogStats {
-		p.logStats(interval)
-
 		time.Sleep(interval)
+
+		p.logStats(interval)
 	}
 }
 
@@ -147,6 +147,10 @@ func (p *Pool) startWorker() {
 			if err != nil {
 				p.errChan <- err
 				p.errTimeSeries.Push(time.Now(), 1)
+
+				pkg(p.log.Error(), "Pool.startWorker").
+					Err(err).
+					Msg("")
 			}
 
 			duration := time.Now().Sub(start).Seconds()
