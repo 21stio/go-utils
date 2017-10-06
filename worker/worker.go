@@ -28,7 +28,6 @@ func New(log zerolog.Logger, isLogStats bool, interval time.Duration, function f
 	pool.log = log
 	pool.function = function
 	pool.tasksChan = make(chan interface{}, 100)
-	pool.errChan = make(chan error, 100)
 	pool.quitChan = make(chan bool, 100)
 	pool.errTimeSeries = queue.NewTimeSeries(1000)
 	pool.tasksDurationTimeSeries = queue.NewTimeSeries(1000)
@@ -48,7 +47,6 @@ type Pool struct {
 	taskWaitDuration        time.Duration
 	applyLoopStarted        bool
 	tasksChan               chan interface{}
-	errChan                 chan error
 	quitChan                chan bool
 	errTimeSeries           *queue.TimeSeries
 	tasksDurationTimeSeries *queue.TimeSeries
@@ -145,7 +143,6 @@ func (p *Pool) startWorker() {
 
 			err := p.function(log, task)
 			if err != nil {
-				p.errChan <- err
 				p.errTimeSeries.Push(time.Now(), 1)
 
 				pkg(p.log.Error(), "Pool.startWorker").
